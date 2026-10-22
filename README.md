@@ -7,3 +7,4 @@ A proof of concept for a document repository where employees can upload, store, 
 > Work in progress. Full documentation will be added at the end.
 
 See [docs/architecture.md](docs/architecture.md) for the system diagram and design choices.
+See [docs/database.md](docs/database.md) for the database schema and ER diagram.
