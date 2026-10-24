@@ -44,4 +44,29 @@ function validateUpload(body, file) {
   return { title, tags, allowedDepartment: department || null };
 }
 
-module.exports = { validateUpload };
+function validateSearch(query) {
+  const title = String(query.title || '').trim();
+  const tag = String(query.tag || '').trim().toLowerCase();
+  const uploader = String(query.uploader || '').trim();
+
+  const filters = { title, tag, uploader };
+  for (const [name, value] of Object.entries(filters)) {
+    if (value.length > 100) {
+      throw new AppError(400, `The ${name} filter is too long`);
+    }
+  }
+
+  const page = query.page === undefined ? 1 : Number(query.page);
+  const limit = query.limit === undefined ? 20 : Number(query.limit);
+
+  if (!Number.isInteger(page) || page < 1) {
+    throw new AppError(400, 'page must be a positive integer');
+  }
+  if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
+    throw new AppError(400, 'limit must be between 1 and 100');
+  }
+
+  return { title, tag, uploader, page, limit };
+}
+
+module.exports = { validateUpload, validateSearch };

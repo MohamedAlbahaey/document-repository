@@ -1,6 +1,6 @@
 const fs = require('fs/promises');
 const documentsService = require('../services/documents.service');
-const { validateUpload } = require('../validators/documents.validator');
+const { validateUpload, validateSearch } = require('../validators/documents.validator');
 
 async function create(req, res, next) {
   try {
@@ -20,4 +20,14 @@ async function create(req, res, next) {
   }
 }
 
-module.exports = { create };
+async function search(req, res, next) {
+  try {
+    const filters = validateSearch(req.query);
+    const result = await documentsService.search({ user: req.user, filters });
+    res.json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { create, search };
