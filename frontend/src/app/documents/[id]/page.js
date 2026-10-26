@@ -13,7 +13,7 @@ export default function DocumentPage() {
     <Suspense fallback={<p className="text-sm text-gray-500">Loading...</p>}>
       <DocumentRoute />
     </Suspense>
-  ); 
+  );
 }
 
 function DocumentRoute() {
