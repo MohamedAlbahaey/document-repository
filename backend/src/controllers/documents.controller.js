@@ -1,6 +1,12 @@
 const fs = require('fs/promises');
+const AppError = require('../utils/AppError');
 const documentsService = require('../services/documents.service');
-const { validateUpload, validateSearch } = require('../validators/documents.validator');
+const {
+  validateUpload,
+  validateSearch,
+  parseId,
+  parseVersion,
+} = require('../validators/documents.validator');
 
 async function create(req, res, next) {
   try {
@@ -30,4 +36,39 @@ async function search(req, res, next) {
   }
 }
 
-module.exports = { create, search };
+async function getById(req, res, next) {
+  try {
+    const id = parseId(req.params.id);
+    res.json(await documentsService.getById({ user: req.user, id }));
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getVersions(req, res, next) {
+  try {
+    const id = parseId(req.params.id);
+    res.json(await documentsService.getVersions({ user: req.user, id }));
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function download(req, res, next) {
+  try {
+    const id = parseId(req.params.id);
+    const versionNumber = parseVersion(req.query.version);
+    const file = await documentsService.getDownload({ user: req.user, id, versionNumber });
+
+    // Sends the file and sets the download name to the ORIGINAL file name
+    res.download(file.filePath, file.fileName, (err) => {
+      if (err && !res.headersSent) {
+        next(new AppError(404, 'File is missing on the server'));
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = { create, search, getById, getVersions, download };

@@ -69,4 +69,19 @@ function validateSearch(query) {
   return { title, tag, uploader, page, limit };
 }
 
-module.exports = { validateUpload, validateSearch };
+const MAX_INT = 2147483647; // the largest value a Postgres INT can hold
+
+function parseId(value, name = 'id') {
+  const id = Number(value);
+  if (!Number.isInteger(id) || id <= 0 || id > MAX_INT) {
+    throw new AppError(400, `${name} must be a positive integer`);
+  }
+  return id;
+}
+
+function parseVersion(value) {
+  if (value === undefined) return null; // no version means "the latest"
+  return parseId(value, 'version');
+}
+
+module.exports = { validateUpload, validateSearch, parseId, parseVersion };

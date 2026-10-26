@@ -1,7 +1,10 @@
+const path = require('path');
+const pool = require('../db/pool');
 const { withTransaction } = require('../db/transaction');
+const { UPLOAD_DIR } = require('../config');
+const AppError = require('../utils/AppError');
 const documentsRepository = require('../repositories/documents.repository');
 const tagsRepository = require('../repositories/tags.repository');
-const pool = require('../db/pool');
 
 async function create({ user, data, file }) {
   return withTransaction(async (client) => {
@@ -73,4 +76,71 @@ async function search({ user, filters }) {
   return { page: filters.page, limit: filters.limit, results };
 }
 
-module.exports = { create, search };
+// The same rule as the SQL in search(): admin, or public, or same department
+function canAccess(user, doc) {
+  return (
+    user.role === 'admin' ||
+    doc.allowed_department === null ||
+    doc.allowed_department.toLowerCase() === user.department.toLowerCase()
+  );
+}
+
+async function getAccessibleDocument(user, id) {
+  const doc = await documentsRepository.findById(pool, id);
+  if (!doc) {
+    throw new AppError(404, 'Document not found');
+  }
+  if (!canAccess(user, doc)) {
+    throw new AppError(403, 'You do not have access to this document');
+  }
+  return doc;
+}
+
+function mapVersion(v) {
+  return {
+    versionNumber: v.version_number,
+    fileName: v.file_name,
+    mimeType: v.mime_type,
+    sizeBytes: Number(v.size_bytes),
+    createdAt: v.created_at,
+    uploadedBy: { id: v.uploaded_by_id, name: v.uploaded_by_name },
+  };
+}
+
+async function getById({ user, id }) {
+  const doc = await getAccessibleDocument(user, id);
+  const versions = (await documentsRepository.findVersions(pool, id)).map(mapVersion);
+
+  return {
+    id: doc.id,
+    title: doc.title,
+    tags: doc.tags,
+    allowedDepartment: doc.allowed_department,
+    createdAt: doc.created_at,
+    uploader: { id: doc.uploader_id, name: doc.uploader_name },
+    currentVersion: versions[0], // the list is newest first
+    versions,
+  };
+}
+
+async function getVersions({ user, id }) {
+  await getAccessibleDocument(user, id);
+  const versions = await documentsRepository.findVersions(pool, id);
+  return versions.map(mapVersion);
+}
+
+async function getDownload({ user, id, versionNumber }) {
+  await getAccessibleDocument(user, id);
+
+  const version = await documentsRepository.findVersion(pool, id, versionNumber);
+  if (!version) {
+    throw new AppError(404, 'Version not found');
+  }
+
+  return {
+    filePath: path.join(UPLOAD_DIR, version.stored_path),
+    fileName: version.file_name,
+  };
+}
+
+module.exports = { create, search, getById, getVersions, getDownload };

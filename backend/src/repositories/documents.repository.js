@@ -101,4 +101,62 @@ async function search(db, { user, title, tag, uploader, limit, offset }) {
   return rows;
 }
 
-module.exports = { insertDocument, insertVersion, linkTag, search };
+async function findById(db, id) {
+  const { rows } = await db.query(
+    `SELECT d.id, d.title, d.allowed_department, d.created_at,
+            u.id AS uploader_id, u.name AS uploader_name,
+            COALESCE(
+              (SELECT array_agg(t.name ORDER BY t.name)
+               FROM document_tags dt
+               JOIN tags t ON t.id = dt.tag_id
+               WHERE dt.document_id = d.id),
+              ARRAY[]::varchar[]
+            ) AS tags
+     FROM documents d
+     JOIN users u ON u.id = d.uploader_id
+     WHERE d.id = $1`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
+async function findVersions(db, documentId) {
+  const { rows } = await db.query(
+    `SELECT v.version_number, v.file_name, v.mime_type, v.size_bytes, v.created_at,
+            u.id AS uploaded_by_id, u.name AS uploaded_by_name
+     FROM document_versions v
+     JOIN users u ON u.id = v.uploaded_by
+     WHERE v.document_id = $1
+     ORDER BY v.version_number DESC`,
+    [documentId]
+  );
+  return rows;
+}
+
+// versionNumber null -> the latest version
+async function findVersion(db, documentId, versionNumber) {
+  const params = [documentId];
+  let sql = `SELECT file_name, stored_path, mime_type
+             FROM document_versions
+             WHERE document_id = $1`;
+
+  if (versionNumber) {
+    params.push(versionNumber);
+    sql += ' AND version_number = $2';
+  } else {
+    sql += ' ORDER BY version_number DESC LIMIT 1';
+  }
+
+  const { rows } = await db.query(sql, params);
+  return rows[0] || null;
+}
+
+module.exports = {
+  insertDocument,
+  insertVersion,
+  linkTag,
+  search,
+  findById,
+  findVersions,
+  findVersion,
+};
