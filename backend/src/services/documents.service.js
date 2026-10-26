@@ -143,4 +143,38 @@ async function getDownload({ user, id, versionNumber }) {
   };
 }
 
-module.exports = { create, search, getById, getVersions, getDownload };
+async function addVersion({ user, id, file }) {
+  return withTransaction(async (client) => {
+    const doc = await documentsRepository.lockById(client, id);
+    if (!doc) {
+      throw new AppError(404, 'Document not found');
+    }
+    if (!canAccess(user, doc)) {
+      throw new AppError(403, 'You do not have access to this document');
+    }
+
+    const versionNumber = await documentsRepository.nextVersionNumber(client, id);
+
+    const version = await documentsRepository.insertVersion(client, {
+      documentId: id,
+      versionNumber,
+      fileName: file.originalname,
+      storedPath: file.filename,
+      mimeType: file.mimetype,
+      sizeBytes: file.size,
+      uploadedBy: user.id,
+    });
+
+    return {
+      documentId: id,
+      versionNumber: version.version_number,
+      fileName: version.file_name,
+      mimeType: version.mime_type,
+      sizeBytes: Number(version.size_bytes),
+      createdAt: version.created_at,
+      uploadedBy: { id: user.id, name: user.name },
+    };
+  });
+}
+
+module.exports = { create, search, getById, getVersions, getDownload, addVersion };

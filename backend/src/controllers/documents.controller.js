@@ -71,4 +71,26 @@ async function download(req, res, next) {
   }
 }
 
-module.exports = { create, search, getById, getVersions, download };
+async function addVersion(req, res, next) {
+  try {
+    const id = parseId(req.params.id);
+    if (!req.file) {
+      throw new AppError(400, 'File is required (form field "file")');
+    }
+
+    const version = await documentsService.addVersion({
+      user: req.user,
+      id,
+      file: req.file,
+    });
+    res.status(201).json(version);
+  } catch (err) {
+    // Multer already saved the file, so remove it if anything failed
+    if (req.file) {
+      await fs.unlink(req.file.path).catch(() => {});
+    }
+    next(err);
+  }
+}
+
+module.exports = { create, search, getById, getVersions, download, addVersion };

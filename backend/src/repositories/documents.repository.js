@@ -151,6 +151,28 @@ async function findVersion(db, documentId, versionNumber) {
   return rows[0] || null;
 }
 
+// Fetches the document row and LOCKS it until the transaction ends
+async function lockById(db, id) {
+  const { rows } = await db.query(
+    `SELECT id, allowed_department
+     FROM documents
+     WHERE id = $1
+     FOR UPDATE`,
+    [id]
+  );
+  return rows[0] || null;
+}
+
+async function nextVersionNumber(db, documentId) {
+  const { rows } = await db.query(
+    `SELECT COALESCE(MAX(version_number), 0) + 1 AS next
+     FROM document_versions
+     WHERE document_id = $1`,
+    [documentId]
+  );
+  return rows[0].next;
+}
+
 module.exports = {
   insertDocument,
   insertVersion,
@@ -159,4 +181,6 @@ module.exports = {
   findById,
   findVersions,
   findVersion,
+  lockById,
+  nextVersionNumber,
 };

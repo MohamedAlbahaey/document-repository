@@ -11,5 +11,6 @@ router.get('/', currentUser, documentsController.search);
 router.get('/:id', currentUser, documentsController.getById);
 router.get('/:id/versions', currentUser, documentsController.getVersions);
 router.get('/:id/download', currentUser, documentsController.download);
+router.post('/:id/versions', currentUser, upload.single('file'), documentsController.addVersion);
 
 module.exports = router;
